@@ -1,5 +1,6 @@
-
 import pandas as pd
+import re
+
 dataset = pd.read_csv('beatles_dataset.csv')
 #print(dataset.head())
 
@@ -21,8 +22,23 @@ def classificandoPeriodo(ano):
     else:
         return "Fase final"
 
-
-
 dataset_filtrado['period'] = dataset_filtrado['year'].apply(classificandoPeriodo)
+#print(dataset_filtrado.head())
 
-print(dataset_filtrado.head())
+
+#FUnção NLP para contar apenas as palavras
+def contar_palavras(texto):
+    if not isinstance(texto, str):
+        return 0
+    
+    palavras = re.findall(r'\w+', texto)   
+    return len(palavras)
+
+
+#criar a coluna com a quantidade de palavras
+dataset_filtrado['qtd_palavras'] = dataset_filtrado['lyrics'].apply(contar_palavras)
+
+#agrupar as musicas pelos periodos e contar as palavras
+media_por_periodo = dataset_filtrado.groupby('period')['qtd_palavras'].mean()
+
+print(media_por_periodo.round(2))
