@@ -1,6 +1,10 @@
 import pandas as pd
 import re
 from collections import Counter
+import spacy
+
+#carrega a bibloteca em inglês do spacy
+nlp = spacy.load('en_core_web_sm')
 
 dataset = pd.read_csv('beatles_dataset.csv')
 #print(dataset.head())
@@ -233,5 +237,48 @@ def palavras_mais_frequentes(texto_periodo, top_n = 10):
     return contagem.most_common(top_n)
 
 mais_frequentes_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(palavras_mais_frequentes)
+#print(mais_frequentes_por_periodo)
 
-print(mais_frequentes_por_periodo)
+def analise_pos_tags(texto_periodo, top_n=10):
+    texto_juntado = ' '.join(texto_periodo.dropna()).lower()
+    doc = nlp(texto_juntado)
+
+    verbos = []
+    substantivos = []
+    adjetivos = []
+
+    for token in doc:
+        # Ignora stopwords, pontuações, espaços e letras isoladas
+        if (
+            token.text in STOPWORDS
+            or token.is_punct
+            or token.is_space
+            or len(token.text) <= 1
+        ):
+            continue
+
+        if token.pos_ == 'VERB':
+            verbos.append(token.text)
+        elif token.pos_ == 'NOUN':
+            substantivos.append(token.text)
+        elif token.pos_ == 'ADJ':
+            adjetivos.append(token.text)
+
+    return {
+        'Verbos': Counter(verbos).most_common(top_n),
+        'Substantivos': Counter(substantivos).most_common(top_n),
+        'Adjetivos': Counter(adjetivos).most_common(top_n),
+    }
+
+
+pos_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(
+    analise_pos_tags
+)
+
+
+
+for (periodo, classe), lista in pos_por_periodo.items():
+    print(f'\n--- {periodo} | {classe} ---')
+    tabela = pd.DataFrame(lista, columns=['Palavra', 'Frequência'])
+    # index=False oculta os números 0, 1, 2... da esquerda
+    print(tabela.to_string(index=False))
