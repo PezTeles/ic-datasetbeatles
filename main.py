@@ -2,6 +2,7 @@ import pandas as pd
 import re
 from collections import Counter
 import spacy
+from collections import defaultdict
 
 #carrega a bibloteca em inglês do spacy
 nlp = spacy.load('en_core_web_sm')
@@ -277,8 +278,50 @@ pos_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(
 
 
 
-for (periodo, classe), lista in pos_por_periodo.items():
-    print(f'\n--- {periodo} | {classe} ---')
-    tabela = pd.DataFrame(lista, columns=['Palavra', 'Frequência'])
-    # index=False oculta os números 0, 1, 2... da esquerda
-    print(tabela.to_string(index=False))
+# for (periodo, classe), lista in pos_por_periodo.items():
+#     print(f'\n--- {periodo} | {classe} ---')
+#     tabela = pd.DataFrame(lista, columns=['Palavra', 'Frequência'])
+#     # index=False oculta os números 0, 1, 2... da esquerda
+#     print(tabela.to_string(index=False))
+
+
+def ngramas(texto_periodo, n=2, top_n=10):
+    texto_juntado = ' '.join(texto_periodo.dropna()).lower()
+    palavras = re.findall(r'\w+', texto_juntado)
+
+    contagem_ngramas = defaultdict(int)
+
+    for i in range(len(palavras) - n + 1):
+        ngrama = ' '.join(palavras[i : i + n])
+
+        contagem_ngramas[ngrama] += 1
+
+    mais_comuns = sorted(
+        contagem_ngramas.items(), key=lambda item: item[1], reverse=True
+    )[:top_n]
+
+    return mais_comuns
+
+
+
+bigramas_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(
+    lambda texto: ngramas(texto, n=2, top_n=5)
+)
+
+print('--- TOP 5 BIGRAMAS (2 PALAVRAS) POR PERÍODO ---')
+for periodo, lista in bigramas_por_periodo.items():
+    print(f'\n{periodo}:')
+    for ngrama, qtd in lista:
+        print(f'  "{ngrama}" -> {qtd} vezes')
+
+
+
+trigramas_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(
+    lambda texto: ngramas(texto, n=3, top_n=5)
+)
+
+print('\n--- TOP 5 TRIGRAMAS (3 PALAVRAS) POR PERÍODO ---')
+for periodo, lista in trigramas_por_periodo.items():
+    print(f'\n{periodo}:')
+    for ngrama, qtd in lista:
+        print(f'  "{ngrama}" -> {qtd} vezes')    
