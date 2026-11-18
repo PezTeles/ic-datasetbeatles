@@ -3,6 +3,8 @@ import re
 from collections import Counter
 import spacy
 from collections import defaultdict
+from sklearn.decomposition import TruncatedSVD
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 #carrega a bibloteca em inglês do spacy
 nlp = spacy.load('en_core_web_sm')
@@ -308,20 +310,51 @@ bigramas_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(
     lambda texto: ngramas(texto, n=2, top_n=5)
 )
 
-print('--- TOP 5 BIGRAMAS (2 PALAVRAS) POR PERÍODO ---')
-for periodo, lista in bigramas_por_periodo.items():
-    print(f'\n{periodo}:')
-    for ngrama, qtd in lista:
-        print(f'  "{ngrama}" -> {qtd} vezes')
+# print('--- TOP 5 BIGRAMAS (2 PALAVRAS) POR PERÍODO ---')
+# for periodo, lista in bigramas_por_periodo.items():
+#     print(f'\n{periodo}:')
+#     for ngrama, qtd in lista:
+#         print(f'  "{ngrama}" -> {qtd} vezes')
 
 
 
-trigramas_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(
-    lambda texto: ngramas(texto, n=3, top_n=5)
-)
+# trigramas_por_periodo = dataset_filtrado.groupby('period')['lyrics'].apply(
+#     lambda texto: ngramas(texto, n=3, top_n=5)
+# )
 
-print('\n--- TOP 5 TRIGRAMAS (3 PALAVRAS) POR PERÍODO ---')
-for periodo, lista in trigramas_por_periodo.items():
-    print(f'\n{periodo}:')
-    for ngrama, qtd in lista:
-        print(f'  "{ngrama}" -> {qtd} vezes')    
+# print('\n--- TOP 5 TRIGRAMAS (3 PALAVRAS) POR PERÍODO ---')
+# for periodo, lista in trigramas_por_periodo.items():
+#     print(f'\n{periodo}:')
+#     for ngrama, qtd in lista:
+#         print(f'  "{ngrama}" -> {qtd} vezes')    
+
+def temas_lsa(serie_letras, n_temas=3, n_palavras=5):
+    #remove linhas vazias, garantindo que cada musica seja um item na lista
+    musicas = serie_letras.dropna().tolist()
+
+    vetorizador = TfidfVectorizer(stop_words='english', max_features=1000)
+    matriz_tfidf = vetorizador.fit_transform(musicas)
+
+    lsa = TruncatedSVD(n_components=n_temas, random_state=42)
+    lsa.fit(matriz_tfidf)
+
+    # Recupera o vocabulário mapeado pelo vetorizador
+    termos = vetorizador.get_feature_names_out()
+    
+    temas_encontrados = []
+
+    for idx, componente in enumerate(lsa.components_):
+        # Ordena os índices das palavras do maior peso para o menor
+        indices_top = componente.argsort()[: -n_palavras - 1 : -1]
+        palavras_tema = [termos[i] for i in indices_top]
+        temas_encontrados.append(f"Tema {idx + 1}: {', '.join(palavras_tema)}")
+
+    return temas_encontrados
+
+
+print('=== TEMAS RELEVANTES POR PERÍODO (LSA / SCIKIT-LEARN) ===')
+for periodo, grupo in dataset_filtrado.groupby('period'):
+    print(f'\n--- {periodo.upper()} ---')
+    temas = temas_lsa(grupo['lyrics'], n_temas=3, n_palavras=6)
+    for t in temas:
+        print(f'  {t}')
