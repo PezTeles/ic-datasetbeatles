@@ -332,7 +332,15 @@ def temas_lsa(serie_letras, n_temas=3, n_palavras=5):
     #remove linhas vazias, garantindo que cada musica seja um item na lista
     musicas = serie_letras.dropna().tolist()
 
-    vetorizador = TfidfVectorizer(stop_words='english', max_features=1000)
+    vetorizador = TfidfVectorizer(
+    # 1. Pega apenas palavras com 3 ou mais letras (elimina 'll', 've', 'oh')
+    token_pattern=r'(?u)\b[a-zA-Z]{3,}\b',
+    # 2. Adiciona fragmentos de contração e interjeições às stopwords padrão
+    stop_words=list(TfidfVectorizer(stop_words='english').get_stop_words())
+    + ['don', 'ain', 'gon', 'wan', 'yeah', 'whoa', 'hoo', 'mon'],
+    # 3. Ignora palavras que aparecem em mais de 50% das músicas (evita que 'love' e 'know' dominem todos os temas)
+    max_df=0.5,
+)
     matriz_tfidf = vetorizador.fit_transform(musicas)
 
     lsa = TruncatedSVD(n_components=n_temas, random_state=42)
@@ -340,7 +348,7 @@ def temas_lsa(serie_letras, n_temas=3, n_palavras=5):
 
     # Recupera o vocabulário mapeado pelo vetorizador
     termos = vetorizador.get_feature_names_out()
-    
+
     temas_encontrados = []
 
     for idx, componente in enumerate(lsa.components_):
@@ -352,7 +360,7 @@ def temas_lsa(serie_letras, n_temas=3, n_palavras=5):
     return temas_encontrados
 
 
-print('=== TEMAS RELEVANTES POR PERÍODO (LSA / SCIKIT-LEARN) ===')
+print('TEMAS RELEVANTES POR PERÍODO')
 for periodo, grupo in dataset_filtrado.groupby('period'):
     print(f'\n--- {periodo.upper()} ---')
     temas = temas_lsa(grupo['lyrics'], n_temas=3, n_palavras=6)
